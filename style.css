@@ -14,3 +14,10 @@
   .list-group-item {
     cursor: pointer;
   }
+
+  .btn-delete {
+    padding: 0.25rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    float: right;
+  }

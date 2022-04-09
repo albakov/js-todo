@@ -50,58 +50,89 @@ const tab = {
 tab.init();
 
 /**
- * Form
+ * Form Handler
  */
-const handle = {
-    itemTemplate: `<input class="form-check-input me-2 js_task-checkbox" type="checkbox"> <span class="js_task-title">%task%</span>`,
+const formHandler = {
+    itemTemplate: `<input class="form-check-input me-2 js_task-checkbox" type="checkbox"> <span class="js_task-title">%task%</span> <button type="button" class="btn btn-delete btn-danger js_task-delete" data-id="%id%">Delete</span>`,
     itemCssClass: 'list-group-item align-items-center border-0 mb-2 rounded js_task-item',
 
     init() {
+        this.form = document.querySelector('.js_form');
+        this.input = document.querySelector('.js_form-input');
+        this.list = document.querySelector('.js_task-list');
+
         this.addNewItemEventListener();
     },
 
     addNewItemEventListener() {
-        const form = document.querySelector('.js_form'),
-            input = document.querySelector('.js_form-input'),
-            list = document.querySelector('.js_task-list');
-
-        form.addEventListener('submit', function (e) {
+        formHandler.form.addEventListener('submit', function (e) {
             e.preventDefault();
 
-            if (input.value) {
-                const item = document.createElement('li'),
-                    activeTab = document.querySelectorAll('.nav-link.active')[0];
-
-                item.setAttribute('class', handle.itemCssClass)
-                item.innerHTML = handle.itemTemplate.replace('%task%', input.value);
-                list.appendChild(item);
-                input.value = "";
-                tab.filterItems(activeTab.getAttribute('href'));
-
-                handle.setItemOnClickEventListener();
+            if (formHandler.input.value) {
+                backService.addItem(formHandler.input.value)
+                    .then(res => {
+                        formHandler.addItem(JSON.parse(res));
+                    })
+                    .finally(() => {
+                        formHandler.input.value = "";
+                    });
             }
         });
     },
 
-    setItemOnClickEventListener() {
-        const item = document.querySelector('.js_task-item');
+    addItem(task) {
+        const item = document.createElement('li'),
+            activeTab = document.querySelector('.nav-link.active');
 
+        item.setAttribute('data-id', task.id);
+        item.setAttribute('class', formHandler.itemCssClass);
+
+        item.innerHTML = formHandler.itemTemplate
+            .replace('%task%', task.title)
+            .replace('%id%', task.id);
+
+        formHandler.list.appendChild(item);
+
+        formHandler.toggleCompletedTitle(task.completed, item.querySelector('.js_task-title'));
+        item.querySelector('.js_task-checkbox').checked = task.completed === 1;
+
+        tab.filterItems(activeTab.getAttribute('href'));
+
+        formHandler.toggleCompletedOnClickEventListener(item);
+        formHandler.deleteItemEventListener(item);
+    },
+
+    toggleCompletedOnClickEventListener(item) {
         item.onclick = function (e) {
-            const isCheckbox = e.target.classList.contains('js_task-checkbox'),
-                parentNode = isCheckbox ? e.target.closest('li') : e.currentTarget,
-                itemTitle = parentNode.querySelector('.js_task-title'),
-                checkbox = parentNode.querySelector('.js_task-checkbox');
+            if (!e.target.classList.contains('js_task-delete')) {
+                const isCheckbox = e.target.classList.contains('js_task-checkbox'),
+                    parentNode = isCheckbox ? e.target.closest('li') : e.currentTarget,
+                    itemTitle = parentNode.querySelector('.js_task-title'),
+                    checkbox = parentNode.querySelector('.js_task-checkbox');
 
-            if (!isCheckbox) {
-                checkbox.checked = !checkbox.checked;
+                if (!isCheckbox) {
+                    checkbox.checked = !checkbox.checked;
+                }
+
+                backService.setCompleted(parentNode.dataset.id, checkbox.checked ? 1 : 0)
+                    .then(() => {
+                        formHandler.toggleCompletedTitle(checkbox.checked, itemTitle);
+                    });
             }
-
-            handle.toggleItem(checkbox, itemTitle);
         };
     },
 
-    toggleItem(input, span) {
-        if (input.checked) {
+    deleteItemEventListener(item) {
+        item.querySelector('.js_task-delete').onclick = function (e) {
+            backService.deleteItem(e.target.dataset.id)
+                .then(() => {
+                    item.remove();
+                });
+        };
+    },
+
+    toggleCompletedTitle(isCompleted, span) {
+        if (isCompleted) {
             span.innerHTML = `<s>${span.innerHTML}</s>`;
         } else {
             span.innerHTML = span.innerHTML.replace(/(\<s\>|\<\/s\>)/ig, '');
@@ -109,4 +140,56 @@ const handle = {
     },
 };
 
-handle.init();
+formHandler.init();
+
+/**
+ * Back Service
+ */
+const backService = {
+    prefix: 'http://localhost:8080/api/',
+
+    init() {
+        this.getAllItems();
+    },
+
+    getAllItems() {
+        this.request('GET', 'items')
+            .then(res => {
+                const items = JSON.parse(res);
+
+                items.forEach(function (task) {
+                    formHandler.addItem(task);
+                });
+            });
+    },
+
+    addItem(title) {
+        return this.request('POST', 'items', JSON.stringify({ Title: title }));
+    },
+
+    setCompleted(id, completed) {
+        return this.request('POST', `items/${id}`, JSON.stringify({ Completed: completed }));
+    },
+
+    deleteItem(id) {
+        return this.request('DELETE', `items/${id}`);
+    },
+
+    request(method, url, data = '') {
+        return new Promise((res, rej) => {
+            const xhr = new XMLHttpRequest();
+
+            xhr.open(method, this.prefix + url, false);
+            xhr.setRequestHeader('Content-type', 'application/json');
+            xhr.send(data);
+
+            if (xhr.status > 299) {
+                rej(xhr.response);
+            } else {
+                res(xhr.response);
+            }
+        });
+    },
+};
+
+backService.init();
