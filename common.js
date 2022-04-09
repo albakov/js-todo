@@ -3,7 +3,7 @@
  */
 const tab = {
     init() {
-        this.tabLinks = document.querySelectorAll('.nav-link');
+        this.tabLinks = document.querySelectorAll('.js_tab-link');
 
         this.tabLinks.forEach(function (v) {
             v.addEventListener('click', function (e) {
@@ -11,28 +11,28 @@ const tab = {
 
                 const currentTab = v.getAttribute('href');
 
-                tab.disableTabs();
+                tab.disableAllTabs();
                 v.classList.add('active');
                 tab.filterItems(currentTab);
             });
         });
     },
 
-    disableTabs() {
+    disableAllTabs() {
         tab.tabLinks.forEach(function (v) {
             v.classList.remove('active');
         });
     },
 
     filterItems(currentTab) {
-        const items = document.querySelectorAll('.list-group-item');
+        const items = document.querySelectorAll('.js_task-item');
 
         items.forEach(function (item) {
             item.style.display = 'block';
         });
 
         items.forEach(function (item) {
-            const input = item.getElementsByTagName('input')[0];
+            const input = item.querySelector('.js_task-checkbox');
 
             if (currentTab === '#active') {
                 if (input.checked) {
@@ -53,55 +53,51 @@ tab.init();
  * Form
  */
 const handle = {
-    itemTemplate: `<input class="form-check-input me-2" type="checkbox"> <span>%task%</span>`,
-    itemCssClass: 'list-group-item align-items-center border-0 mb-2 rounded',
+    itemTemplate: `<input class="form-check-input me-2 js_task-checkbox" type="checkbox"> <span class="js_task-title">%task%</span>`,
+    itemCssClass: 'list-group-item align-items-center border-0 mb-2 rounded js_task-item',
 
     init() {
-        this.add();
-        this.setCompleted();
+        this.addNewItemEventListener();
     },
 
-    add() {
-        const form = document.getElementById('form'),
-            input = document.getElementById('input-task'),
-            list = document.getElementById('list-group');
+    addNewItemEventListener() {
+        const form = document.querySelector('.js_form'),
+            input = document.querySelector('.js_form-input'),
+            list = document.querySelector('.js_task-list');
 
         form.addEventListener('submit', function (e) {
             e.preventDefault();
 
             if (input.value) {
                 const item = document.createElement('li'),
-                    activeTab = document.querySelectorAll('.nav-link.active')[0];;
+                    activeTab = document.querySelectorAll('.nav-link.active')[0];
 
                 item.setAttribute('class', handle.itemCssClass)
                 item.innerHTML = handle.itemTemplate.replace('%task%', input.value);
                 list.appendChild(item);
                 input.value = "";
                 tab.filterItems(activeTab.getAttribute('href'));
+
+                handle.setItemOnClickEventListener();
             }
         });
     },
 
-    setCompleted() {
-        document.addEventListener('click', function (e) {
-            if (e.target.tagName === 'LI' && e.target.classList.contains('list-group-item')) {
-                const span = e.target.getElementsByTagName('span')[0],
-                    input = e.target.getElementsByTagName('input')[0];
+    setItemOnClickEventListener() {
+        const item = document.querySelector('.js_task-item');
 
-                input.checked = !input.checked;
-                handle.toggleItem(input, span);
+        item.onclick = function (e) {
+            const isCheckbox = e.target.classList.contains('js_task-checkbox'),
+                parentNode = isCheckbox ? e.target.closest('li') : e.currentTarget,
+                itemTitle = parentNode.querySelector('.js_task-title'),
+                checkbox = parentNode.querySelector('.js_task-checkbox');
+
+            if (!isCheckbox) {
+                checkbox.checked = !checkbox.checked;
             }
-        });
 
-        document.addEventListener('change', function (e) {
-            if (e.target.tagName === 'INPUT' && e.target.getAttribute('type') === 'checkbox') {
-                const li = e.target.closest('li'),
-                    span = li.getElementsByTagName('span')[0],
-                    input = li.getElementsByTagName('input')[0];
-
-                handle.toggleItem(input, span);
-            }
-        });
+            handle.toggleItem(checkbox, itemTitle);
+        };
     },
 
     toggleItem(input, span) {
